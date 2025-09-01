@@ -7,6 +7,7 @@ valid_commands = ("exit", "echo", "type")
 
 def main():
     global valid_commands
+    current_path = "/home/andreas/workspace/shell_from_scratch"
     while True:
         sys.stdout.write("$ ")
 
@@ -19,24 +20,23 @@ def main():
         else:
             args = []
 
-        if os.path.isfile(command) and os.access(command, os.X_OK):
-            fullpath = os.path.abspath(command)
-            subprocess.run([fullpath] + args)
+        executable = check_run_file(command, args)
 
-        elif command == "exit":
-            sys.exit(0)
+        if not executable:
+            if command == "exit":
+                sys.exit(0)
 
-        elif command == "echo":
-            print(args)
+            elif command == "echo":
+                print(args)
 
-        elif command == "type":
-            type_command(user_input_list[1])
+            elif command == "type":
+                type_command(user_input_list[1])
 
-        elif command == "pwd":
-            print(os.path.abspath)
+            elif command == "pwd":
+                print(current_path)
 
-        else:
-            command_not_found(command)
+            else:
+                command_not_found(command)
 
 
 def command_not_found(command):
@@ -64,6 +64,21 @@ def type_command(command):
             break
     if not found:
         print(f"{command}: not found")
+
+
+def check_run_file(path, args):
+    if os.path.isfile(path) and os.access(path, os.X_OK):
+        fullpath = os.path.abspath(path)
+        subprocess.run([fullpath] + args)
+        return True
+    try:
+        for directory in os.environ["PATH"].split(os.pathsep):
+            fullpath = os.path.join(directory, path)
+            if os.path.isfile(fullpath) and os.access(fullpath, os.X_OK):
+                subprocess.run([fullpath] + args)
+                return True
+    except Exception:
+        return False
 
 
 if __name__ == "__main__":
