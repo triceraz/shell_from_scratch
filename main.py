@@ -7,7 +7,6 @@ valid_commands = ("exit", "echo", "type")
 
 def main():
     global valid_commands
-    current_path = "/home/andreas/workspace/shell_from_scratch"
     while True:
         sys.stdout.write("$ ")
 
@@ -33,8 +32,17 @@ def main():
                 type_command(user_input_list[1])
 
             elif command == "pwd":
-                print(current_path)
+                cwdir = os.getcwd()
+                print(cwdir)
 
+            elif command == "cd":
+                directory = user_input_list[1]
+                if directory == "~":
+                    directory = os.path.expanduser("~")
+                try:
+                    os.chdir(directory)
+                except FileNotFoundError:
+                    print(f"{directory}: No such file or directory")
             else:
                 command_not_found(command)
 
