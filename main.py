@@ -1,54 +1,46 @@
 import sys
 import os
 import subprocess
+import shlex
 
-valid_commands = ("exit", "echo", "type")
+VALID_COMMANDS = ("exit", "echo", "type")
 
 
-def main():
-    global valid_commands
-    while True:
-        sys.stdout.write("$ ")
+def cmd_exit(args):
+    sys.exit(0)
 
-        # Wait for user input
-        user_input = input()
-        user_input_list = user_input.split(" ", 1)
-        command = user_input_list[0]
-        if len(user_input_list) > 1:
-            args = user_input_list[1].split()
-        else:
-            args = []
 
-        executable = check_run_file(command, args)
+def cmd_echo(args):
+    print(" ".join(args))
 
-        if not executable:
-            if command == "exit":
-                sys.exit(0)
 
-            elif command == "echo":
-                print(args)
+def cmd_pwd(args):
+    print(os.getcwd())
 
-            elif command == "type":
-                type_command(user_input_list[1])
 
-            elif command == "pwd":
-                cwdir = os.getcwd()
-                print(cwdir)
+def cmd_cd(args):
+    if not args or args[0] == "~":
+        directory = os.path.expanduser("~")
+    else:
+        directory = args[0]
 
-            elif command == "cd":
-                directory = user_input_list[1]
-                if directory == "~":
-                    directory = os.path.expanduser("~")
-                try:
-                    os.chdir(directory)
-                except FileNotFoundError:
-                    print(f"{directory}: No such file or directory")
-            else:
-                command_not_found(command)
+    try:
+        os.chdir(directory)
+    except FileNotFoundError:
+        print(f"{directory}: No such file or directory")
+
+
+BUILTINS = {
+    "exit": cmd_exit,
+    "echo": cmd_echo,
+    "pwd": cmd_pwd,
+    "cd": cmd_cd,
+    "type": lambda args: type_command(args[0]) if args else print("type: missing argument"),
+}
 
 
 def command_not_found(command):
-    print(f"{command}: command not found")
+    print(f"{command}: command not found", file=sys.stderr)
 
 
 def command_description(command):
@@ -56,7 +48,7 @@ def command_description(command):
 
 
 def type_command(command):
-    if command in valid_commands:
+    if command in VALID_COMMANDS:
         command_description(command)
         return
 
@@ -74,19 +66,36 @@ def type_command(command):
         print(f"{command}: not found")
 
 
-def check_run_file(path, args):
-    if os.path.isfile(path) and os.access(path, os.X_OK):
-        fullpath = os.path.abspath(path)
-        subprocess.run([fullpath] + args)
-        return True
-    try:
-        for directory in os.environ["PATH"].split(os.pathsep):
-            fullpath = os.path.join(directory, path)
-            if os.path.isfile(fullpath) and os.access(fullpath, os.X_OK):
-                subprocess.run([fullpath] + args)
-                return True
-    except Exception:
-        return False
+def find_executable(command):
+    if os.path.isfile(command) and os.access(command, os.X_OK):
+        return os.path.abspath(command)
+
+    for directory in os.environ["PATH"].split(os.pathsep):
+        fullpath = os.path.join(directory, command)
+        if os.path.isfile(fullpath) and os.access(fullpath, os.X_OK):
+            return fullpath
+
+    return None
+
+
+def main():
+    while True:
+        sys.stdout.write("$ ")
+        user_input = input()
+        user_input_list = shlex.split(user_input)
+        if not user_input_list:
+            continue
+        command, *args = user_input_list
+
+        executable = find_executable(command)
+        if executable:
+            subprocess.run([executable] + args)
+
+        else:
+            if command in BUILTINS:
+                BUILTINS[command](args)
+            else:
+                command_not_found(command)
 
 
 if __name__ == "__main__":
